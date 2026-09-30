@@ -1,0 +1,62 @@
+name: Destroy Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_app_name:
+        description: Type the application name to confirm teardown
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      ARM_USE_OIDC: 'true'
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_ghcr_token: ${{ secrets.GHCR_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify application name
+        env:
+          CONFIRM_APP_NAME: ${{ inputs.confirm_app_name }}
+        run: |
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          if [[ "$repo_name" != *-infra ]]; then
+            echo "This workflow must run from an -infra repository."
+            exit 1
+          fi
+          expected_app_name="${repo_name%-infra}"
+          if [[ "$CONFIRM_APP_NAME" != "$expected_app_name" ]]; then
+            echo "Confirmation does not match this repository's application name."
+            exit 1
+          fi
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.7.5'
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - run: terraform init
+      - run: terraform validate
+      - name: Plan destruction
+        run: terraform plan -destroy -no-color -out=tfplan
+      - name: Apply destruction plan
+        run: terraform apply -auto-approve tfplan
+      - name: Record teardown result
+        run: echo 'Terraform destroy completed successfully.' >> "$GITHUB_STEP_SUMMARY"

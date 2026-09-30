@@ -1,0 +1,41 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: hut-huttyman
+  description: Application stack for hut-huttyman
+  annotations:
+    github.com/project-slug: huttyman-ais/hut-huttyman-infra
+spec:
+  owner: user:default/bob
+  domain: default
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: hut-huttyman-infra
+  description: Terraform-managed Azure infrastructure for hut-huttyman (dev)
+  annotations:
+    github.com/project-slug: huttyman-ais/hut-huttyman-infra
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://github.com/huttyman-ais/hut-huttyman-infra/actions
+      title: Terraform workflow runs
+      icon: github
+spec:
+  type: infrastructure
+  owner: user:default/bob
+  system: hut-huttyman
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: hut-huttyman-database
+  description: PostgreSQL Flexible Server database for hut-huttyman (dev)
+spec:
+  type: database
+  owner: user:default/bob
+  system: hut-huttyman
+  dependencyOf:
+    - component:hut-huttyman-backend
